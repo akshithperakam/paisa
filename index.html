@@ -1024,7 +1024,7 @@
   <!-- DASHBOARD -->
   <div class="page active" id="page-dashboard">
     <div class="hero-card">
-      <div class="hero-label">THIS MONTH'S SPENDING</div>
+      <div class="hero-label">TODAY'S SPENDING</div>
       <div class="hero-amount" id="heroAmount">₹0</div>
       <div class="hero-meta">
         <div class="hero-meta-item">
@@ -1032,7 +1032,7 @@
           <div class="hero-meta-value" id="heroTxCount">0</div>
         </div>
         <div class="hero-meta-item">
-          <div class="hero-meta-label">DAILY AVG</div>
+          <div class="hero-meta-label">MONTHLY AVG</div>
           <div class="hero-meta-value" id="heroDailyAvg">₹0</div>
         </div>
         <div class="hero-meta-item">
@@ -1468,18 +1468,22 @@ function renderAll() {
 }
 
 function renderDashboard(txs) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayTxs = txs.filter(t => t.date === todayStr && t.type !== 'income');
   const monthTxs = txs.filter(t => monthKey(t.date) === thisMonth());
   const expenses = monthTxs.filter(t => t.type !== 'income');
   const incomes = monthTxs.filter(t => t.type === 'income');
+  const totalToday = todayTxs.reduce((s,t)=>s+t.amount,0);
   const totalExp = expenses.reduce((s,t)=>s+t.amount,0);
   const totalInc = incomes.reduce((s,t)=>s+t.amount,0);
   const daysInMonth = new Date().getDate();
-  const dailyAvg = daysInMonth > 0 ? totalExp / daysInMonth : 0;
+  const daysSoFar = new Date().getDate();
+  const dailyAvg = daysSoFar > 0 ? totalExp / daysSoFar : 0;
   const bud = (window._budget && window._budget()) || 0;
   const budLeft = bud > 0 ? bud - totalExp : null;
 
-  document.getElementById('heroAmount').textContent = fmtFull(totalExp);
-  document.getElementById('heroTxCount').textContent = expenses.length;
+  document.getElementById('heroAmount').textContent = fmtFull(totalToday);
+  document.getElementById('heroTxCount').textContent = todayTxs.length;
   document.getElementById('heroDailyAvg').textContent = fmt(dailyAvg);
   document.getElementById('heroBudgetLeft').textContent = budLeft !== null ? fmt(Math.max(0,budLeft)) : '—';
   document.getElementById('heroBudgetLeft').style.color = (budLeft !== null && budLeft < 0) ? 'var(--red)' : 'var(--accent3)';
