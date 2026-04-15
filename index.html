@@ -172,7 +172,7 @@
   }
   .hero-amount {
     font-family: 'Syne', sans-serif;
-    font-size: 42px; font-weight: 750;
+    font-size: 42px; font-weight: 800;
     line-height: 1; margin-bottom: 16px;
     background: linear-gradient(135deg, #fff 60%, var(--accent));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
@@ -843,13 +843,18 @@ let transactions = [];
 let currentFilter = 'all';
 let currentType = 'expense';
 let selectedCat = 'food';
-let budget = parseInt(localStorage.getItem('paisaBudget')) || 0;
+let budget = 0;
 
 // ─── FIREBASE LISTENERS ──────────────────────
 const syncDot = document.getElementById('syncDot');
 const syncLabel = document.getElementById('syncLabel');
 
 const txRef = ref(db, 'transactions');
+let txLoaded = false, budgetLoaded = false;
+function maybeHideLoader() {
+  if (txLoaded && budgetLoaded) document.getElementById('loading').classList.add('hidden');
+}
+
 onValue(txRef, (snapshot) => {
   transactions = [];
   snapshot.forEach(child => {
@@ -858,25 +863,44 @@ onValue(txRef, (snapshot) => {
   transactions.sort((a,b) => new Date(b.date+' '+(b.time||'00:00')) - new Date(a.date+' '+(a.time||'00:00')));
   syncDot.className = 'sync-dot live';
   syncLabel.textContent = 'LIVE';
+  txLoaded = true;
+  maybeHideLoader();
   renderAll();
-  document.getElementById('loading').classList.add('hidden');
 }, (error) => {
   syncDot.className = 'sync-dot';
   syncLabel.textContent = 'OFFLINE';
-  document.getElementById('loading').classList.add('hidden');
+  txLoaded = true;
+  maybeHideLoader();
   showToast('Firebase error: ' + error.message, 'error');
+});
+
+// ─── BUDGET FIREBASE LISTENER ─────────────────
+const budgetRef = ref(db, 'budget');
+onValue(budgetRef, (snapshot) => {
+  const val = snapshot.val();
+  budget = (val && val.amount) ? parseInt(val.amount) : 0;
+  budgetLoaded = true;
+  maybeHideLoader();
+  renderAll();
+}, () => {
+  budgetLoaded = true;
+  maybeHideLoader();
 });
 
 // Expose globals
 window._db = db;
 window._txRef = txRef;
+window._budgetRef = budgetRef;
 window._ref = ref;
 window._push = push;
 window._remove = remove;
 window._set = set;
 window._transactions = () => transactions;
 window._budget = () => budget;
-window._setBudget = (v) => { budget = v; };
+window._setBudget = (v) => {
+  budget = v;
+  set(budgetRef, { amount: v }).catch(e => showToast('Budget sync failed: ' + e.message, 'error'));
+};
 window._CATEGORIES = CATEGORIES;
 window._currentType = () => currentType;
 window._setCurrentType = (v) => { currentType = v; };
@@ -1249,7 +1273,6 @@ function saveBudget() {
   const v = parseInt(document.getElementById('budgetInput').value);
   if (!v || v <= 0) { showToast('Enter a valid budget', 'error'); return; }
   if (window._setBudget) window._setBudget(v);
-  localStorage.setItem('paisaBudget', v);
   document.getElementById('budgetModal').classList.remove('open');
   showToast('Budget saved!', 'success');
   renderAll();
