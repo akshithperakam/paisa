@@ -1019,7 +1019,7 @@ function txRow(t, showDelete) {
     <div class="tx-icon" style="background:${c.color}20">${c.icon}</div>
     <div class="tx-info">
       <div class="tx-note">${t.note || c.label}</div>
-      <div class="tx-meta">${c.label} · ${dateStr}</div>
+      <div class="tx-meta">${c.label} · ${dateStr}${t.time ? ' · ' + t.time : ''}</div>
     </div>
     <div class="tx-amount" style="color:${amtColor}">${amtSign}${fmt(t.amount)}</div>
     ${del}
