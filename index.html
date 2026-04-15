@@ -446,9 +446,14 @@
   }
   .trend-bars {
     display: flex; align-items: flex-end; gap: 6px;
-    height: 80px; margin-top: 16px;
+    height: 100px; margin-top: 16px;
   }
-  .trend-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .trend-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .trend-bar-amount {
+    font-size: 7px; color: var(--text2); letter-spacing: 0.3px;
+    white-space: nowrap; text-align: center; font-weight: 600;
+    min-height: 10px;
+  }
   .trend-bar {
     width: 100%; border-radius: 4px 4px 0 0;
     min-height: 4px;
@@ -465,19 +470,17 @@
   }
   .week-bars {
     display: flex; align-items: flex-end; gap: 6px;
-    height: 90px; margin-top: 16px; margin-bottom: 4px;
+    height: 110px; margin-top: 16px; margin-bottom: 4px;
   }
   .week-bar-wrap {
     flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
     cursor: default; position: relative;
   }
   .week-bar-amount {
-    font-size: 7px; color: var(--text3); letter-spacing: 0.3px;
+    font-size: 7px; color: var(--text2); letter-spacing: 0.3px;
     white-space: nowrap; text-align: center;
-    opacity: 0; transition: opacity 0.2s;
-    position: absolute; top: -14px;
+    font-weight: 600;
   }
-  .week-bar-wrap:hover .week-bar-amount { opacity: 1; }
   .week-bar {
     width: 100%; border-radius: 5px 5px 0 0;
     min-height: 4px;
@@ -1156,7 +1159,9 @@ function renderAnalytics(txs) {
     const h = Math.round((monthlyTotals[i]/maxM)*80);
     const label = new Date(mk+'-01').toLocaleDateString('en-IN',{month:'short'});
     const isCurrent = mk === thisMonth();
+    const amtLabel = monthlyTotals[i] > 0 ? fmt(monthlyTotals[i]) : '';
     return `<div class="trend-bar-wrap">
+      <span class="trend-bar-amount" style="color:${isCurrent?'var(--accent2)':'var(--text2)'}">${amtLabel}</span>
       <div class="trend-bar${isCurrent?' current':''}" style="height:${Math.max(h,4)}px"></div>
       <span class="trend-bar-label">${label}</span>
     </div>`;
@@ -1194,8 +1199,9 @@ function renderAnalytics(txs) {
     else if (isToday) barClass += ' today';
     if (isZero) barClass += ' zero';
     const amtLabel = weekTotals[i] > 0 ? fmt(weekTotals[i]) : '';
+    const amtColor = isToday ? 'var(--gold)' : (isHighest && !isToday) ? 'var(--red)' : 'var(--text2)';
     return `<div class="week-bar-wrap">
-      <span class="week-bar-amount">${amtLabel}</span>
+      <span class="week-bar-amount" style="color:${amtColor}">${amtLabel}</span>
       <div class="${barClass}" style="height:${Math.max(isZero?4:h,4)}px"></div>
       <span class="week-bar-day${isToday?' today-label':''}">${label}</span>
     </div>`;
