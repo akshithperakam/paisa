@@ -458,6 +458,46 @@
   .trend-bar.current { background: linear-gradient(180deg, var(--accent2), rgba(255,106,155,0.3)); }
   .trend-bar-label { font-size: 8px; color: var(--text3); letter-spacing: 0.5px; }
 
+  /* Daily week chart */
+  .week-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; margin-bottom: 16px;
+  }
+  .week-bars {
+    display: flex; align-items: flex-end; gap: 6px;
+    height: 90px; margin-top: 16px; margin-bottom: 4px;
+  }
+  .week-bar-wrap {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
+    cursor: default; position: relative;
+  }
+  .week-bar-amount {
+    font-size: 7px; color: var(--text3); letter-spacing: 0.3px;
+    white-space: nowrap; text-align: center;
+    opacity: 0; transition: opacity 0.2s;
+    position: absolute; top: -14px;
+  }
+  .week-bar-wrap:hover .week-bar-amount { opacity: 1; }
+  .week-bar {
+    width: 100%; border-radius: 5px 5px 0 0;
+    min-height: 4px;
+    background: linear-gradient(180deg, var(--accent3), rgba(106,255,203,0.25));
+    transition: height 0.7s cubic-bezier(0.4,0,0.2,1);
+  }
+  .week-bar.today { background: linear-gradient(180deg, var(--gold), rgba(255,209,102,0.3)); }
+  .week-bar.highest { background: linear-gradient(180deg, var(--red), rgba(255,71,87,0.3)); }
+  .week-bar.zero { opacity: 0.3; }
+  .week-bar-day { font-size: 8px; color: var(--text3); letter-spacing: 0.5px; }
+  .week-bar-day.today-label { color: var(--gold); font-weight: 600; }
+  .week-summary {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .week-summary-item { text-align: center; }
+  .week-summary-label { font-size: 8px; color: var(--text3); letter-spacing: 1px; margin-bottom: 3px; }
+  .week-summary-value { font-size: 12px; font-weight: 600; }
+
   .insight-card {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 14px; padding: 16px; margin-bottom: 10px;
@@ -752,6 +792,15 @@
         <div class="section-title">6-MONTH TREND</div>
       </div>
       <div class="trend-bars" id="trendBars"></div>
+    </div>
+
+    <div class="week-card">
+      <div class="section-header" style="margin-bottom:0">
+        <div class="section-title">DAILY SPEND THIS WEEK</div>
+        <div id="weekTotalBadge" style="font-size:11px;color:var(--accent3)">₹0 total</div>
+      </div>
+      <div class="week-bars" id="weekBars"></div>
+      <div class="week-summary" id="weekSummary"></div>
     </div>
 
     <div class="section-header">
@@ -1113,6 +1162,65 @@ function renderAnalytics(txs) {
     </div>`;
   }).join('');
 
+  // ── Daily spend this week ──────────────────────
+  const DAY_LABELS = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const todayD = new Date();
+  const todayDow = todayD.getDay(); // 0=Sun
+  // Build array of 7 Date objects for this week (Sun→Sat)
+  const weekDates = DAY_LABELS.map((_, i) => {
+    const d = new Date(todayD);
+    d.setDate(todayD.getDate() - todayDow + i);
+    return d.toISOString().split('T')[0];
+  });
+  const weekTotals = weekDates.map(ds =>
+    txs.filter(t => t.date === ds && t.type !== 'income').reduce((s,t)=>s+t.amount,0)
+  );
+  const weekGrandTotal = weekTotals.reduce((s,v)=>s+v,0);
+  const maxW = Math.max(...weekTotals, 1);
+  const highestIdx = weekTotals.indexOf(Math.max(...weekTotals));
+  const activeDays = weekTotals.filter(v=>v>0).length;
+  const weekDailyAvg = activeDays > 0 ? weekGrandTotal / activeDays : 0;
+
+  document.getElementById('weekTotalBadge').textContent = fmt(weekGrandTotal) + ' total';
+
+  const weekBarsEl = document.getElementById('weekBars');
+  weekBarsEl.innerHTML = DAY_LABELS.map((label, i) => {
+    const h = Math.round((weekTotals[i] / maxW) * 80);
+    const isToday = i === todayDow;
+    const isHighest = i === highestIdx && weekTotals[i] > 0;
+    const isZero = weekTotals[i] === 0;
+    let barClass = 'week-bar';
+    if (isHighest && !isToday) barClass += ' highest';
+    else if (isToday) barClass += ' today';
+    if (isZero) barClass += ' zero';
+    const amtLabel = weekTotals[i] > 0 ? fmt(weekTotals[i]) : '';
+    return `<div class="week-bar-wrap">
+      <span class="week-bar-amount">${amtLabel}</span>
+      <div class="${barClass}" style="height:${Math.max(isZero?4:h,4)}px"></div>
+      <span class="week-bar-day${isToday?' today-label':''}">${label}</span>
+    </div>`;
+  }).join('');
+
+  const weekSummaryEl = document.getElementById('weekSummary');
+  const highestDayLabel = weekTotals[highestIdx] > 0 ? DAY_LABELS[highestIdx] : '—';
+  weekSummaryEl.innerHTML = `
+    <div class="week-summary-item">
+      <div class="week-summary-label">WEEK TOTAL</div>
+      <div class="week-summary-value" style="color:var(--accent3)">${fmt(weekGrandTotal)}</div>
+    </div>
+    <div class="week-summary-item">
+      <div class="week-summary-label">DAILY AVG</div>
+      <div class="week-summary-value" style="color:var(--accent)">${activeDays>0?fmt(weekDailyAvg):'—'}</div>
+    </div>
+    <div class="week-summary-item">
+      <div class="week-summary-label">HIGHEST DAY</div>
+      <div class="week-summary-value" style="color:var(--red)">${highestDayLabel}</div>
+    </div>
+    <div class="week-summary-item">
+      <div class="week-summary-label">ACTIVE DAYS</div>
+      <div class="week-summary-value" style="color:var(--text)">${activeDays}/7</div>
+    </div>`;
+
   // Insights
   const insightsEl = document.getElementById('insightsList');
   const insights = [];
@@ -1133,6 +1241,37 @@ function renderAnalytics(txs) {
     }
     const txCount = monthTxs.length;
     insights.push({ icon: '🧮', bg: 'rgba(124,106,255,0.1)', title: `${txCount} transactions this month`, sub: `Averaging ${fmt(total/(new Date().getDate()))} per day` });
+
+    // Daily week insights
+    if (weekGrandTotal > 0) {
+      if (weekTotals[todayDow] > 0) {
+        const todaySpend = weekTotals[todayDow];
+        const overAvg = todaySpend > weekDailyAvg;
+        insights.push({
+          icon: overAvg ? '🔥' : '✨',
+          bg: overAvg ? 'rgba(255,71,87,0.1)' : 'rgba(106,255,203,0.1)',
+          title: overAvg ? `Today is your heaviest day` : `Today's spending is below average`,
+          sub: `${fmt(todaySpend)} today vs ${fmt(weekDailyAvg)} avg this week`
+        });
+      }
+      const quietDays = weekTotals.filter((v,i) => i <= todayDow && v === 0).length;
+      if (quietDays > 0) {
+        insights.push({
+          icon: '🟢',
+          bg: 'rgba(46,204,113,0.1)',
+          title: `${quietDays} no-spend day${quietDays>1?'s':''} this week`,
+          sub: `${DAY_LABELS.filter((_,i)=>i<=todayDow&&weekTotals[i]===0).join(', ')} — great discipline!`
+        });
+      }
+      if (highestIdx <= todayDow && weekTotals[highestIdx] > 0) {
+        insights.push({
+          icon: '📌',
+          bg: 'rgba(255,184,106,0.1)',
+          title: `${DAY_LABELS[highestIdx]} was your biggest day`,
+          sub: `${fmt(weekTotals[highestIdx])} spent — ${((weekTotals[highestIdx]/weekGrandTotal)*100).toFixed(0)}% of this week's total`
+        });
+      }
+    }
     const bud = (window._budget && window._budget()) || 0;
     if (bud > 0) {
       const pct = ((total/bud)*100).toFixed(0);
